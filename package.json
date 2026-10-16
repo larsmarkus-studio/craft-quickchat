@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "description": "Dev-only: builds src/web/quickchat.css (committed, so installs need no Node) and runs the e2e check.",
+  "scripts": {
+    "build": "sass --no-source-map --style=compressed --quiet-deps --silence-deprecation=import,global-builtin,color-functions,mixed-decls,if-function build/quickchat.scss src/web/quickchat.css",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "bootstrap": "5.3.8",
+    "sass": "1.105.2"
+  }
+}

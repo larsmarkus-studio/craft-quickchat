@@ -1,0 +1,22 @@
+<section id="qc-cp-thread" class="qc-cp-thread">
+    {% if conversation %}
+        <header class="qc-cp-head">
+            <div>
+                <strong>{{ conversation.email ? tag('a', {href: 'mailto:' ~ conversation.email, text: conversation.email}) : 'Visitor #' ~ conversation.id }}</strong>
+                {% set site = craft.app.sites.getSiteById(conversation.siteId) %}
+                {% if site %}<div><span class="qc-cp-site">{{ site.name }}</span> <span class="light">{{ site.language }}</span></div>{% endif %}
+                {% if conversation.pageUrl %}<div class="light">on {{ tag('a', {href: conversation.pageUrl, text: conversation.pageUrl, target: '_blank', rel: 'noopener'}) }}</div>{% endif %}
+            </div>
+            {% set next = conversation.status == 'open' ? 'resolved' : 'open' %}
+            <button type="button" class="btn small"
+                    data-star-on:click="$qc.status = '{{ next }}'; @post('{{ actionUrl('quickchat/cp/status') }}', {headers: {'X-CSRF-Token': '{{ craft.app.request.csrfToken }}'}, filterSignals: {include: /^qc\./}})">
+                {{ next == 'resolved' ? 'Resolve' : 'Reopen' }}
+            </button>
+        </header>
+        <div class="qc-scroll">
+            <div>{% include 'quickchat/_widget/messages' with {messages: messages, agent: true} only %}</div>
+        </div>
+    {% else %}
+        <p class="light qc-cp-empty">Pick a conversation.</p>
+    {% endif %}
+</section>

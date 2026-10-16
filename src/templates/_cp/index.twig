@@ -1,0 +1,54 @@
+{% extends '_layouts/cp' %}
+{% set title = 'Quickchat' %}
+{% set selectedSubnavItem = 'quickchat' %}
+
+{% block actionButton %}
+    <span class="qc-cp-status {{ isOpen ? 'on' : 'off' }}">{{ isOpen ? 'Online (office hours)' : 'Offline, visitors see the email fallback' }}</span>
+{% endblock %}
+
+{% block content %}
+    {% css %}
+    .qc-cp{display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:var(--l,24px);min-height:60vh}
+    .qc-cp-list{display:flex;flex-direction:column;gap:2px;max-height:75vh;overflow:auto;border-inline-end:1px solid var(--hairline-color,#e3e5e8);padding-inline-end:12px}
+    .qc-cp-item{display:block;padding:8px 10px;border-radius:6px;color:inherit;text-decoration:none!important}
+    .qc-cp-item:hover{background:var(--gray-050,#f3f7fc)}
+    .qc-cp-item.sel{background:var(--gray-100,#e4edf6)}
+    .qc-cp-item.resolved{opacity:.6}
+    .qc-cp-who{display:flex;align-items:center;gap:6px;justify-content:space-between}
+    .qc-cp-who strong{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .qc-cp-preview{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.9em}
+    .qc-cp-site{display:inline-block;font-size:.75em;padding:0 6px;border-radius:4px;background:var(--gray-100,#e4edf6);color:var(--medium-text-color,#3f4d5a)}
+    .qc-cp-dot{width:8px;height:8px;border-radius:50%;background:var(--error-color,#cf1124);flex:none}
+    .qc-cp-main{display:flex;flex-direction:column;min-width:0}
+    .qc-cp-thread{flex:1;display:flex;flex-direction:column;min-height:0}
+    .qc-cp-head{display:flex;justify-content:space-between;align-items:start;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--hairline-color,#e3e5e8)}
+    .qc-cp .qc-scroll{flex:1;max-height:55vh;overflow:auto;display:flex;flex-direction:column-reverse;padding:12px 0}
+    .qc-cp .qc-msg{display:flex;flex-direction:column;margin:6px 0;max-width:75%}
+    .qc-cp .qc-msg-me{align-self:flex-end;align-items:flex-end;margin-inline-start:auto}
+    .qc-cp .qc-bubble{padding:8px 12px;border-radius:12px;background:var(--gray-100,#e4edf6);overflow-wrap:anywhere}
+    .qc-cp .qc-msg-me .qc-bubble{background:var(--link-color,#2563eb);color:#fff}
+    .qc-cp .qc-time{font-size:.75em;color:var(--light-text-color,#606d7b)}
+    .qc-cp-compose{display:flex;gap:8px;align-items:end;padding-top:12px}
+    .qc-cp-empty{margin:auto}
+    .qc-cp-status{font-size:.9em;padding:4px 10px;border-radius:12px}
+    .qc-cp-status.on{background:#e3f9e5;color:#0e5c1d}.qc-cp-status.off{background:#f3f4f6;color:#555}
+    @media (max-width:800px){.qc-cp{grid-template-columns:1fr}.qc-cp-list{max-height:30vh;border:0}}
+    {% endcss %}
+    {% set csrf = craft.app.request.csrfToken %}
+    {% set opts = "{headers: {'X-CSRF-Token': '" ~ csrf ~ "'}, filterSignals: {include: /^qc\\./}}" %}
+    <div class="qc-cp" data-star-signals="{{ {qc: {sel: conversation.id ?? 0, reply: '', status: '', v: ''}}|json_encode }}">
+        {% include 'quickchat/_cp/list' %}
+        <div class="qc-cp-main">
+            {% include 'quickchat/_cp/thread' %}
+            {% if conversation %}
+                <div class="qc-cp-compose">
+                    <textarea class="text fullwidth" rows="3" placeholder="Reply… (Enter sends, Shift+Enter for a new line)" aria-label="Reply"
+                              data-star-bind="qc.reply"
+                              data-star-on:keydown="evt.key === 'Enter' && !evt.shiftKey && (evt.preventDefault() || @post('{{ actionUrl('quickchat/cp/reply') }}', {{ opts }}))"></textarea>
+                    <button type="button" class="btn submit" data-star-on:click="@post('{{ actionUrl('quickchat/cp/reply') }}', {{ opts }})">Send</button>
+                </div>
+            {% endif %}
+        </div>
+        {% include 'quickchat/_cp/stream' with {n: 1} only %}
+    </div>
+{% endblock %}

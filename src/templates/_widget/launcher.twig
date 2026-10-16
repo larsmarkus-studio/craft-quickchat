@@ -1,0 +1,16 @@
+{#- Everything visitor-side lives under .qc and the `qc` signal, so it can't clash with the host site. -#}
+<style>
+    .qc-launcher{position:fixed;right:1rem;bottom:1rem;z-index:1054;display:inline-flex;align-items:center;gap:.5rem;padding:.625rem 1rem;border:0;border-radius:2rem;background:var(--qc-accent,#0d6efd);color:#fff;font:500 1rem/1.2 system-ui,sans-serif;box-shadow:0 .25rem 1rem rgba(0,0,0,.2);cursor:pointer}
+    .qc-launcher:focus-visible{outline:3px solid #000;outline-offset:2px}
+</style>
+<div class="qc" id="qc"
+     data-signals="{{ {qc: {open: false, token: '', body: '', email: '', page: '', site: currentSite.id, last: 0, sending: false}}|json_encode }}"
+     data-init="$qc.token = localStorage.getItem('quickchat') || ''; $qc.page = location.href">
+    <div hidden data-effect="$qc.token && localStorage.setItem('quickchat', $qc.token)"></div>
+    <button type="button" class="qc-launcher" aria-label="{{ settings.title|t('quickchat') }}" data-attr:aria-expanded="$qc.open"
+            data-on:click="$qc.open = !$qc.open; $qc.open && @post('{{ craft.quickchat.url('widget/open') }}', {filterSignals: {include: /^qc\./}})">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>{{ 'Chat'|t('quickchat') }}</span>
+    </button>
+    <div id="qc-panel"></div>
+</div>

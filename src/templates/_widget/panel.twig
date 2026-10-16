@@ -1,0 +1,58 @@
+{% set opts = "{filterSignals: {include: /^qc\\./}}" %}
+{% set send = conversation ? craft.quickchat.url('widget/send') : craft.quickchat.url('widget/start') %}
+<div id="qc-panel">
+    {# Lazy: the stylesheet only arrives with the first open #}
+    <link rel="stylesheet" href="{{ cssUrl }}">
+    <div class="modal qc-modal" role="dialog" aria-labelledby="qc-title"
+         data-style:display="$qc.open ? 'block' : 'none'"
+         data-on:keydown__window="evt.key === 'Escape' && ($qc.open = false)">
+        <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="qc-title">{{ settings.title|t('quickchat') }}</h2>
+                    <button type="button" class="btn-close" aria-label="{{ 'Close'|t('quickchat') }}" data-on:click="$qc.open = false"></button>
+                </div>
+
+                {% if not conversation and not isOpen %}
+                    <div class="modal-body">
+                        <p>{{ settings.offlineMessage|t('quickchat') }}</p>
+                        {% if settings.getSupportEmail() %}
+                            <a class="btn btn-primary" href="mailto:{{ settings.getSupportEmail() }}">{{ settings.getSupportEmail() }}</a>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="modal-body qc-scroll">
+                        <div>
+                            <div class="qc-msg qc-msg-them"><div class="qc-bubble">{{ settings.welcomeMessage|t('quickchat') }}</div></div>
+                            <div id="qc-messages" aria-live="polite"></div>
+                        </div>
+                    </div>
+                    {% if conversation %}
+                        {% include 'quickchat/_widget/stream' with {n: n} only %}
+                    {% endif %}
+                    <div class="modal-footer">
+                        {% if conversation and conversation.status == 'resolved' %}
+                            <p class="qc-note">{{ 'This chat was closed. Write again to reopen it, or'|t('quickchat') }}
+                                <button type="button" class="btn btn-link p-0 align-baseline"
+                                        data-on:click="localStorage.removeItem('quickchat'); $qc.token = ''; @post('{{ craft.quickchat.url('widget/open') }}', {{ opts }})">{{ 'start a new one'|t('quickchat') }}</button>.</p>
+                        {% elseif conversation and not isOpen %}
+                            <p class="qc-note">{{ (conversation.email ? 'We are offline now and reply when we are back, by email if needed.' : 'We are offline now and reply when we are back.')|t('quickchat') }}</p>
+                        {% endif %}
+                        {% if not conversation %}
+                            <input type="email" class="form-control form-control-sm" placeholder="{{ 'Email (optional, so we can reply later)'|t('quickchat') }}"
+                                   aria-label="{{ 'Email'|t('quickchat') }}" autocomplete="email" data-bind="qc.email">
+                        {% endif %}
+                        <div class="qc-compose">
+                            <textarea class="form-control" rows="2" maxlength="2000" placeholder="{{ 'Type a message…'|t('quickchat') }}" aria-label="{{ 'Message'|t('quickchat') }}"
+                                      data-bind="qc.body"
+                                      data-on:keydown="evt.key === 'Enter' && !evt.shiftKey && (evt.preventDefault() || @post('{{ send }}', {{ opts }}))"></textarea>
+                            <button type="button" class="btn btn-primary" data-indicator="qc.sending" data-attr:disabled="$qc.sending"
+                                    data-on:click="@post('{{ send }}', {{ opts }})">{{ 'Send'|t('quickchat') }}</button>
+                        </div>
+                        <p id="qc-error"></p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

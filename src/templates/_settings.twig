@@ -1,0 +1,19 @@
+{% import '_includes/forms' as forms %}
+
+{{ forms.lightswitchField({label: 'Enabled', name: 'enabled', on: settings.enabled}) }}
+{{ forms.textField({label: 'Title', name: 'title', value: settings.title, errors: settings.getErrors('title')}) }}
+{{ forms.textareaField({label: 'Welcome message', instructions: 'First bubble a visitor sees.', name: 'welcomeMessage', value: settings.welcomeMessage, rows: 2}) }}
+{{ forms.textareaField({label: 'Offline message', name: 'offlineMessage', value: settings.offlineMessage, rows: 2}) }}
+{{ forms.autosuggestField({label: 'Support email', instructions: 'Shown outside office hours.', name: 'supportEmail', value: settings.supportEmail, suggestEnvVars: true}) }}
+{{ forms.autosuggestField({label: 'Notify email', instructions: 'Gets a mail for each new conversation. Leave empty for none.', name: 'notifyEmail', value: settings.notifyEmail, suggestEnvVars: true}) }}
+{{ forms.checkboxGroupField({
+    label: 'Office days',
+    name: 'openDays',
+    values: settings.openDays,
+    options: [
+        {label: 'Monday', value: 1}, {label: 'Tuesday', value: 2}, {label: 'Wednesday', value: 3},
+        {label: 'Thursday', value: 4}, {label: 'Friday', value: 5}, {label: 'Saturday', value: 6}, {label: 'Sunday', value: 7},
+    ],
+}) }}
+{{ forms.textField({label: 'Open from', instructions: 'HH:MM, ' ~ craft.app.timeZone ~ '.', name: 'openFrom', value: settings.openFrom, size: 5, errors: settings.getErrors('openFrom')}) }}
+{{ forms.textField({label: 'Open until', instructions: 'Earlier than "from" spans midnight.', name: 'openTo', value: settings.openTo, size: 5, errors: settings.getErrors('openTo')}) }}

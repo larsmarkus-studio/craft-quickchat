@@ -1,0 +1,17 @@
+<nav id="qc-cp-list" class="qc-cp-list" aria-label="Conversations">
+    {% for c in conversations %}
+        {% set unread = chat.isUnread(c) %}
+        <a href="{{ cpUrl('quickchat', {id: c.id}) }}" class="qc-cp-item{{ conversation and conversation.id == c.id ? ' sel' }}{{ c.status == 'resolved' ? ' resolved' }}"
+           {{ conversation and conversation.id == c.id ? 'aria-current="true"' }}>
+            <span class="qc-cp-who">
+                {% if unread %}<span class="qc-cp-dot" title="Unread"></span>{% endif %}
+                <strong>{{ c.email ?: 'Visitor #' ~ c.id }}</strong>
+                <span class="light">{{ chat.time(c.dateUpdated) }}</span>
+            </span>
+            {% if craft.app.isMultiSite %}<span class="qc-cp-site">{{ craft.app.sites.getSiteById(c.siteId).name ?? '–' }}</span>{% endif %}
+            <span class="light qc-cp-preview">{{ c.lastFromAgent ? 'You: ' }}{{ c.lastBody|default('')|slice(0, 80) }}</span>
+        </a>
+    {% else %}
+        <p class="light">No conversations yet.</p>
+    {% endfor %}
+</nav>

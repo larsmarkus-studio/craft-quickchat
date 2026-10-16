@@ -1,0 +1,8 @@
+{# `agent`: rendering for the CP, where the agent's own messages are "me". #}
+{% for m in messages %}
+    {% set mine = m.fromAgent == (agent ?? false) %}
+    <div id="qc-m-{{ m.id }}" class="qc-msg {{ mine ? 'qc-msg-me' : 'qc-msg-them' }}">
+        <div class="qc-bubble">{{ m.body|nl2br }}</div>
+        <small class="qc-time">{{ m.time }}</small>
+    </div>
+{% endfor %}

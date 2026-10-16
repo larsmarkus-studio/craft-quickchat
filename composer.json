@@ -1,0 +1,45 @@
+{
+    "name": "larsmarkus-studio/craft-quickchat",
+    "description": "Tiny live chat for Craft CMS 5, built on Datastar and SSE. No cookies, no third-party service, office hours with an email fallback.",
+    "type": "craft-plugin",
+    "license": "MIT",
+    "keywords": [
+        "craft",
+        "cms",
+        "craftcms",
+        "craft-plugin",
+        "chat",
+        "live-chat",
+        "datastar"
+    ],
+    "support": {
+        "source": "https://github.com/larsmarkus-studio/craft-quickchat",
+        "issues": "https://github.com/larsmarkus-studio/craft-quickchat/issues"
+    },
+    "require": {
+        "php": "^8.2",
+        "craftcms/cms": "^5.6.0",
+        "putyourlightson/craft-datastar-module": "^1.0.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "larsmarkusstudio\\quickchat\\": "src/"
+        }
+    },
+    "extra": {
+        "handle": "quickchat",
+        "name": "Quickchat",
+        "developer": "Lars Markus",
+        "developerUrl": "https://larsmarkus.studio",
+        "documentationUrl": "https://github.com/larsmarkus-studio/craft-quickchat",
+        "class": "larsmarkusstudio\\quickchat\\Plugin"
+    },
+    "config": {
+        "allow-plugins": {
+            "yiisoft/yii2-composer": true,
+            "craftcms/plugin-installer": true
+        },
+        "sort-packages": true,
+        "optimize-autoloader": true
+    }
+}

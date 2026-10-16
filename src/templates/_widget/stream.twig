@@ -1,0 +1,2 @@
+{# `n` changes per render, so Datastar sees a new data-init and opens the next request. Stops while the chat is closed. #}
+<div id="qc-stream" hidden data-init="{{ n }} && $qc.open && @post('{{ craft.quickchat.url('widget/stream') }}', {filterSignals: {include: /^qc\./}})"></div>

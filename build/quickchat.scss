@@ -1,0 +1,86 @@
+// Bootstrap 5.3, namespaced: only modal, close, buttons and form-control, all under `.qc`
+// and with `--qc-*` custom properties, so it never fights the host site's own CSS.
+$prefix: qc-;
+$enable-dark-mode: false;
+$primary: #0d6efd !default;
+
+@import "../node_modules/bootstrap/scss/functions";
+@import "../node_modules/bootstrap/scss/variables";
+$theme-colors: ("primary": $primary); // one button variant instead of eight, plus btn-link
+@import "../node_modules/bootstrap/scss/maps";
+@import "../node_modules/bootstrap/scss/mixins";
+
+.qc {
+    // The slice of _root.scss these components read
+    --qc-body-font-family: #{inspect($font-family-sans-serif)};
+    --qc-body-font-size: 1rem;
+    --qc-body-line-height: 1.5;
+    --qc-body-color: #{$body-color};
+    --qc-body-bg: #{$body-bg};
+    --qc-secondary-color: #{$body-secondary-color};
+    --qc-tertiary-bg: #{$body-tertiary-bg};
+    --qc-border-width: #{$border-width};
+    --qc-border-color: #{$border-color};
+    --qc-border-color-translucent: #{$border-color-translucent};
+    --qc-border-radius: #{$border-radius};
+    --qc-border-radius-sm: #{$border-radius-sm};
+    --qc-border-radius-lg: #{$border-radius-lg};
+    --qc-box-shadow: #{$box-shadow};
+    --qc-box-shadow-sm: #{$box-shadow-sm};
+    --qc-emphasis-color: #{$body-emphasis-color};
+    --qc-link-color: #{$primary};
+    --qc-link-hover-color: #{shade-color($primary, 20%)};
+    --qc-link-color-rgb: #{to-rgb($primary)};
+    --qc-emphasis-color-rgb: #{to-rgb($body-emphasis-color)};
+    --qc-secondary-bg: #{$body-secondary-bg};
+    --qc-danger-text-emphasis: #{$danger-text-emphasis};
+    --qc-accent: #{$primary};
+
+    // Mini reboot, scoped
+    font-family: var(--qc-body-font-family);
+    font-size: var(--qc-body-font-size);
+    line-height: var(--qc-body-line-height);
+    color: var(--qc-body-color);
+    *, *::before, *::after { box-sizing: border-box; }
+    h2, p { margin-top: 0; }
+    textarea, input, button { font: inherit; }
+
+    @import "../node_modules/bootstrap/scss/buttons";
+    @import "../node_modules/bootstrap/scss/close";
+    @import "../node_modules/bootstrap/scss/forms/form-control";
+    @import "../node_modules/bootstrap/scss/modal";
+
+    // The few utilities the templates use
+    .small { font-size: .875em; }
+    .text-danger { color: var(--qc-danger-text-emphasis); }
+    .mb-0 { margin-bottom: 0; }
+    .p-0 { padding: 0; }
+    .align-baseline { vertical-align: baseline; }
+
+    // Chat: a docked, non-blocking dialog bottom right instead of a centered one
+    .btn-primary { --qc-btn-bg: var(--qc-accent); --qc-btn-border-color: var(--qc-accent); --qc-btn-hover-bg: var(--qc-accent); --qc-btn-hover-border-color: var(--qc-accent); --qc-btn-active-bg: var(--qc-accent); }
+    .qc-modal { inset: auto 0 0 auto; width: auto; height: auto; max-height: 100%; }
+    .qc-modal .modal-dialog { width: 380px; max-width: calc(100vw - 2rem); margin: 0 1rem 5rem; }
+    .qc-modal .modal-dialog-scrollable { height: min(600px, calc(100vh - 6rem)); }
+    .qc-modal .modal-content { height: 100%; box-shadow: 0 .5rem 2rem rgba(0, 0, 0, .2); }
+    .modal-title { font-size: 1rem; font-weight: 600; margin: 0; }
+    .modal-footer { flex-direction: column; align-items: stretch; gap: .5rem; }
+    .modal-footer > * { margin: 0; }
+    #qc-error:empty { display: none; }
+    .qc-compose { display: flex; gap: .5rem; align-items: end; }
+    .qc-compose textarea { resize: none; }
+    .qc-note { font-size: .875em; color: var(--qc-secondary-color); }
+    // column-reverse keeps the newest message in view without any scroll JS
+    .qc-scroll { display: flex; flex-direction: column-reverse; }
+    .qc-msg { display: flex; flex-direction: column; margin: .25rem 0; max-width: 85%; }
+    .qc-msg-me { margin-inline-start: auto; align-items: flex-end; }
+    .qc-bubble { padding: .5rem .75rem; border-radius: 1rem; background: var(--qc-tertiary-bg); overflow-wrap: anywhere; }
+    .qc-msg-me .qc-bubble { background: var(--qc-accent); color: #fff; }
+    .qc-time { font-size: .75em; color: var(--qc-secondary-color); }
+
+    @include media-breakpoint-down(sm) {
+        .qc-modal { inset: 0; }
+        .qc-modal .modal-dialog { width: 100vw; max-width: none; margin: 0; }
+        .qc-modal .modal-dialog-scrollable { height: 100%; }
+    }
+}
