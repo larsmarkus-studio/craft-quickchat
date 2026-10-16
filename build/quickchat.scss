@@ -43,7 +43,7 @@ $theme-colors: ("primary": $primary); // one button variant instead of eight, pl
     color: var(--qc-body-color);
     *, *::before, *::after { box-sizing: border-box; }
     h2, p { margin-top: 0; }
-    textarea, input, button { font: inherit; }
+    .modal :is(textarea, input, button) { font: inherit; } // not the launcher, which has its own font hook
 
     @import "../node_modules/bootstrap/scss/buttons";
     @import "../node_modules/bootstrap/scss/close";
@@ -62,7 +62,7 @@ $theme-colors: ("primary": $primary); // one button variant instead of eight, pl
     .qc-modal { inset: auto 0 0 auto; width: auto; height: auto; max-height: 100%; }
     .qc-modal .modal-dialog { width: 380px; max-width: calc(100vw - 2rem); margin: 0 1rem 5rem; }
     .qc-modal .modal-dialog-scrollable { height: min(600px, calc(100vh - 6rem)); }
-    .qc-modal .modal-content { height: 100%; box-shadow: 0 .5rem 2rem rgba(0, 0, 0, .2); }
+    .qc-modal .modal-content { height: 100%; border: 0; box-shadow: 0 .5rem 2rem rgba(0, 0, 0, .2); }
     .modal-title { font-size: 1rem; font-weight: 600; margin: 0; }
     .modal-footer { flex-direction: column; align-items: stretch; gap: .5rem; }
     .modal-footer > * { margin: 0; }

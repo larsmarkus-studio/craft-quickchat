@@ -53,7 +53,7 @@ Then set office hours, the support email and the texts under **Settings → Quic
   cut down to modal, close button, buttons and form controls, scoped under `.qc` with `--qc-*`
   variables, so it never touches your own CSS (~4 KB gzipped).
 - No JavaScript besides Datastar. Signals live under `qc`, so they can't clash with yours.
-- Accent colour: set `--qc-accent` on `.qc` in your own CSS.
+- Accent colour and launcher font: set `--qc-accent` and `--qc-launcher-font` on `.qc` in your own CSS.
 
 ## Privacy
 
