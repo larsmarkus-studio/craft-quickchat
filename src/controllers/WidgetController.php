@@ -100,8 +100,8 @@ class WidgetController extends Controller
     }
 
     /**
-     * Holds the request for `streamSeconds`, pushing new messages as they arrive, then
-     * re-renders `#qc-stream` so Datastar opens the next request.
+     * Sends messages newer than `last`. With `holdSeconds` 0 it answers at once and the page polls
+     * again; otherwise it keeps checking for that long, then re-renders `#qc-stream` to reconnect.
      */
     public function actionStream(): Response
     {
@@ -114,15 +114,16 @@ class WidgetController extends Controller
         }
 
         $last = (int) ($qc['last'] ?? 0);
-        $status = $conversation['status'];
-        $seconds = Plugin::getInstance()->getSettings()->streamSeconds;
+        // The status the page last rendered, so a resolve between two polls still re-renders it
+        $status = (string) ($qc['st'] ?? '') ?: $conversation['status'];
+        $hold = Plugin::getInstance()->getSettings()->holdSeconds;
 
-        // ponytail: polls the DB every second and holds one PHP worker per open chat;
-        // fine for a beta, move to a pub/sub (Redis) or a dedicated SSE server when chats outnumber workers
-        return $this->sse()->getEventStream(function () use ($chat, $conversation, $last, $status, $seconds, $qc) {
-            set_time_limit($seconds + 15);
-            $end = time() + $seconds;
-            while (time() < $end && !connection_aborted()) {
+        // ponytail: one indexed query per check; with holdSeconds > 0 each open chat also holds a PHP
+        // process. Move to pub/sub (Redis, Mercure) when polling load or held processes start to hurt.
+        return $this->sse()->getEventStream(function () use ($chat, $conversation, $last, $status, $hold, $qc) {
+            set_time_limit($hold + 15);
+            $end = time() + $hold;
+            while (true) {
                 $messages = $chat->messages((int) $conversation['id'], $last);
                 if ($messages) {
                     $last = (int) end($messages)['id'];
@@ -137,6 +138,9 @@ class WidgetController extends Controller
                     $this->patchPanel(array_merge($qc, ['last' => 0]));
                     return;
                 }
+                if (time() >= $end || connection_aborted()) {
+                    break;
+                }
                 // Comment line: keeps proxies from timing out and lets PHP notice a closed tab
                 while (ob_get_level() > 0) {
                     ob_end_flush(); // the SSE service leaves a buffer open after each event
@@ -145,7 +149,9 @@ class WidgetController extends Controller
                 flush();
                 sleep(self::POLL_SECONDS);
             }
-            $this->sse()->patchElements($this->partial('_widget/stream', ['n' => random_int(1, 999999999)]));
+            if ($hold) {
+                $this->sse()->patchElements($this->partial('_widget/stream', ['n' => random_int(1, 999999999)]));
+            }
         });
     }
 
@@ -157,7 +163,7 @@ class WidgetController extends Controller
             $this->sse()->patchSignals(['qc' => ['token' => '']]);
         }
         // The visitor's view starts empty and the stream fills it, so there's one render path for messages
-        $this->sse()->patchSignals(['qc' => ['last' => 0]]);
+        $this->sse()->patchSignals(['qc' => ['last' => 0, 'st' => $conversation['status'] ?? '']]);
         $this->sse()->patchElements($this->partial('_widget/panel', [
             'settings' => $plugin->getSettings(),
             'isOpen' => $plugin->chat->isOpen(),

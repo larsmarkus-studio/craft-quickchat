@@ -51,17 +51,17 @@ class CpController extends Controller
         $version = (string) ($qc['v'] ?? '');
         // Newest visitor message this page knows about; `_ding` is the browser-only chime trigger
         $seen = (int) ($qc['seen'] ?? 0);
-        $seconds = Plugin::getInstance()->getSettings()->streamSeconds;
+        $hold = Plugin::getInstance()->getSettings()->holdSeconds;
         $chat = Plugin::getInstance()->chat;
         // Both read the session (CSRF token, the user's formatting locale). Once the stream has sent
         // headers, touching the session throws, so warm them up first.
         $csrf = $this->request->getCsrfToken();
         Craft::$app->getFormatter();
 
-        return $this->sse()->getEventStream(function () use ($chat, $id, $version, $seen, $seconds, $csrf) {
-            set_time_limit($seconds + 15);
-            $end = time() + $seconds;
-            while (time() < $end && !connection_aborted()) {
+        return $this->sse()->getEventStream(function () use ($chat, $id, $version, $seen, $hold, $csrf) {
+            set_time_limit($hold + 15);
+            $end = time() + $hold;
+            while (true) {
                 if ($id) {
                     $c = $chat->findById($id);
                     if ($c && $chat->isUnread($c)) {
@@ -77,6 +77,9 @@ class CpController extends Controller
                         $this->sse()->patchSignals(['qc' => ['seen' => $latest, '_ding' => $latest]]);
                     }
                 }
+                if (time() >= $end || connection_aborted()) {
+                    break;
+                }
                 while (ob_get_level() > 0) {
                     ob_end_flush(); // the SSE service leaves a buffer open after each event
                 }
@@ -84,7 +87,9 @@ class CpController extends Controller
                 flush();
                 sleep(1);
             }
-            $this->sse()->patchElements($this->partial('_cp/stream', ['n' => random_int(1, 999999999), 'csrf' => $csrf]));
+            if ($hold) {
+                $this->sse()->patchElements($this->partial('_cp/stream', ['n' => random_int(1, 999999999), 'csrf' => $csrf]));
+            }
         });
     }
 

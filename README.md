@@ -6,7 +6,6 @@ inside your Craft install, with no third-party service and no cookies.
 
 - Craft CMS 5.6+, PHP 8.2+
 - Datastar comes along as `putyourlightson/craft-datastar-module`; the Datastar plugin is optional
-- Your web server must pass streamed responses through unbuffered (see [SSE and buffering](#sse-and-buffering))
 
 ## Installation
 
@@ -41,7 +40,8 @@ locally and deploy, or keep them in `config/quickchat.php` per environment.
 - **Office hours**: outside them, visitors see your support email instead of the chat. Open
   conversations stay readable and writable, with an "offline" note.
 - **Optional email** before the first message, so you can follow up after the visitor leaves.
-- **Live both ways**: one SSE stream per open chat; the CP dashboard updates itself too.
+- **Live both ways**: the widget and the CP dashboard check for new messages every few seconds
+  (see [Polling or held streams](#polling-or-held-streams)).
 - **Chime in the CP** for new visitor messages, switched on per browser on the dashboard. Browsers
   only allow sound after you've clicked the page once; the dashboard says so if it was blocked.
 - **Unread badge** on the CP nav item, **resolve / reopen** per conversation. A visitor
@@ -69,14 +69,17 @@ and is sent in POST bodies only, never in URLs. The visitor endpoints skip CSRF 
 protects cookie-based sessions, and these endpoints have none. Starting a chat is limited to one per
 IP per 30 seconds and messages to one per second (through Craft's cache, where the IP sits hashed for 30 seconds; nothing about the visitor is stored besides what they type).
 
-## SSE and buffering
+## Polling or held streams
 
-Every SSE request stays open for `streamSeconds` (30) and polls the database once a second, then
-the browser opens the next one. Each open chat therefore holds one PHP worker: fine for a beta,
-not for a busy shop.
+By default the widget and the dashboard check for new messages every `pollSeconds` (3). Each check
+is a short Datastar request that answers at once (about 50 ms), so it never ties up a PHP process
+and works behind any proxy, buffering or compression. A message shows up within a few seconds.
 
-If messages arrive in bursts at the end of those 30 seconds, something buffers the response.
-On Apache with PHP-FPM (DDEV's default), add `.ddev/apache/sse-flush.conf`:
+On a server with PHP processes to spare, set `holdSeconds` (e.g. 30) for instant delivery: each
+request then stays open that long and pushes messages the moment they arrive. Every open chat and
+every open dashboard holds one PHP process for as long as it's open, and the server must pass
+streamed responses through unbuffered. If messages arrive in bursts, something buffers them. On
+Apache with PHP-FPM (DDEV's default), add `.ddev/apache/sse-flush.conf`:
 
 ```apache
 <Proxy "unix:/var/run/php/php-fpm.sock|fcgi://localhost">
@@ -93,7 +96,7 @@ php tests/hours.php                                                   # office-h
 npm install && QUICKCHAT_URL=https://my-site.ddev.site/ npm run e2e   # Playwright, against a page with the widget
 ```
 
-The e2e test checks that the stylesheet loads lazily, that a message round-trips over SSE and
+The e2e test checks that the stylesheet loads lazily, that a message round-trips and
 survives a reload, and that no quickchat response sets a cookie. Run it locally or on staging: it
 leaves an `e2e …` conversation behind.
 

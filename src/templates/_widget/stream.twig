@@ -1,2 +1,9 @@
-{# `n` changes per render, so Datastar sees a new data-init and opens the next request. Stops while the chat is closed. #}
-<div id="qc-stream" hidden data-init="{{ n }} && $qc._open && @post('{{ craft.quickchat.url('widget/stream') }}', {filterSignals: {include: /^qc\./}})"></div>
+{% set hold = craft.quickchat.settings.holdSeconds %}
+{% set check = "$qc._open && @post('" ~ craft.quickchat.url('widget/stream') ~ "', {filterSignals: {include: /^qc\\./}})" %}
+{% if hold %}
+    {# Held requests: `n` changes per render, so Datastar sees a new data-init and opens the next one #}
+    <div id="qc-stream" hidden data-init="{{ n }} && {{ check }}"></div>
+{% else %}
+    {# Short polls: each request answers at once. Nothing runs while the chat is closed. #}
+    <div id="qc-stream" hidden data-on-interval__duration.{{ craft.quickchat.settings.pollSeconds }}s.leading="{{ check }}"></div>
+{% endif %}

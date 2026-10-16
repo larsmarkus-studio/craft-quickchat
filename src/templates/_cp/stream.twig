@@ -1,1 +1,7 @@
-<div id="qc-cp-stream" hidden data-star-init="{{ n }} && @post('{{ actionUrl('quickchat/cp/stream') }}', {headers: {'X-CSRF-Token': '{{ csrf }}'}, filterSignals: {include: /^qc\./}, openWhenHidden: true})"></div>
+{% set hold = craft.quickchat.settings.holdSeconds %}
+{% set check = "@post('" ~ actionUrl('quickchat/cp/stream') ~ "', {headers: {'X-CSRF-Token': '" ~ csrf ~ "'}, filterSignals: {include: /^qc\\./}, openWhenHidden: true})" %}
+{% if hold %}
+    <div id="qc-cp-stream" hidden data-star-init="{{ n }} && {{ check }}"></div>
+{% else %}
+    <div id="qc-cp-stream" hidden data-star-on-interval__duration.{{ craft.quickchat.settings.pollSeconds }}s.leading="{{ check }}"></div>
+{% endif %}

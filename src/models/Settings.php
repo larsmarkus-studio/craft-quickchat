@@ -25,8 +25,15 @@ class Settings extends Model
     /** `HH:MM` in the Craft system timezone. `openTo` before `openFrom` spans midnight. */
     public string $openFrom = '09:00';
     public string $openTo = '17:00';
-    /** Seconds one SSE request stays open before the browser reconnects. */
-    public int $streamSeconds = 30;
+    /** Seconds between checks for new messages, in the widget and the CP. */
+    public int $pollSeconds = 3;
+    /**
+     * 0: every check is a short request that answers at once, so no PHP process is tied up.
+     * Above 0: each request stays open this long and pushes messages the moment they arrive.
+     * Only for servers that pass streamed responses through unbuffered and have PHP processes
+     * to spare: every open chat and every open dashboard holds one.
+     */
+    public int $holdSeconds = 0;
 
     public function getSupportEmail(): string
     {
@@ -43,7 +50,8 @@ class Settings extends Model
         return [
             [['title', 'welcomeMessage', 'offlineMessage', 'openFrom', 'openTo'], 'required'],
             [['openFrom', 'openTo'], 'match', 'pattern' => '/^([01]\d|2[0-3]):[0-5]\d$/'],
-            [['streamSeconds'], 'integer', 'min' => 5, 'max' => 300],
+            [['pollSeconds'], 'integer', 'min' => 1, 'max' => 60],
+            [['holdSeconds'], 'integer', 'min' => 0, 'max' => 300],
         ];
     }
 }
