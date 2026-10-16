@@ -34,7 +34,6 @@
     .qc-cp-status.on{background:#e3f9e5;color:#0e5c1d}.qc-cp-status.off{background:#f3f4f6;color:#555}
     @media (max-width:800px){.qc-cp{grid-template-columns:1fr}.qc-cp-list{max-height:30vh;border:0}}
     {% endcss %}
-    {% set csrf = craft.app.request.csrfToken %}
     {% set opts = "{headers: {'X-CSRF-Token': '" ~ csrf ~ "'}, filterSignals: {include: /^qc\\./}}" %}
     <div class="qc-cp" data-star-signals="{{ {qc: {sel: conversation.id ?? 0, reply: '', status: '', v: ''}}|json_encode }}">
         {% include 'quickchat/_cp/list' %}
@@ -49,6 +48,6 @@
                 </div>
             {% endif %}
         </div>
-        {% include 'quickchat/_cp/stream' with {n: 1} only %}
+        {% include 'quickchat/_cp/stream' with {n: 1, csrf: csrf} only %}
     </div>
 {% endblock %}

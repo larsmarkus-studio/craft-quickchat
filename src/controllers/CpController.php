@@ -9,6 +9,7 @@ use craft\web\Controller;
 use larsmarkusstudio\quickchat\Plugin;
 use larsmarkusstudio\quickchat\services\Chat;
 use putyourlightson\datastar\assets\DatastarAssetBundle;
+use putyourlightson\datastar\Datastar;
 use putyourlightson\datastar\traits\Sse;
 use yii\web\Response;
 
@@ -28,12 +29,14 @@ class CpController extends Controller
     public function actionIndex(?int $id = null): Response
     {
         $id ??= (int) Craft::$app->getRequest()->getQueryParam('id') ?: null;
-        // The aliased (`data-star-*`) build, on this CP page only, whatever the site's `registerScript` says
+        // The Datastar plugin only boots the module on site requests; booting defines the bundle's alias.
+        // Then the aliased (`data-star-*`) build, on this CP page only, whatever `registerScript` says.
+        Datastar::getInstance();
         $this->getView()->registerAssetBundle(DatastarAssetBundle::class);
         if ($id) {
             Plugin::getInstance()->chat->markRead($id);
         }
-        return $this->renderTemplate('quickchat/_cp/index', $this->vars($id));
+        return $this->renderTemplate('quickchat/_cp/index', $this->vars($id) + ['csrf' => $this->request->getCsrfToken()]);
     }
 
     public function actionStream(): Response
@@ -44,8 +47,12 @@ class CpController extends Controller
         $version = (string) ($qc['v'] ?? '');
         $seconds = Plugin::getInstance()->getSettings()->streamSeconds;
         $chat = Plugin::getInstance()->chat;
+        // Both read the session (CSRF token, the user's formatting locale). Once the stream has sent
+        // headers, touching the session throws, so warm them up first.
+        $csrf = $this->request->getCsrfToken();
+        Craft::$app->getFormatter();
 
-        return $this->sse()->getEventStream(function () use ($chat, $id, $version, $seconds) {
+        return $this->sse()->getEventStream(function () use ($chat, $id, $version, $seconds, $csrf) {
             set_time_limit($seconds + 15);
             $end = time() + $seconds;
             while (time() < $end && !connection_aborted()) {
@@ -57,7 +64,7 @@ class CpController extends Controller
                 }
                 if (($now = $chat->version()) !== $version) {
                     $version = $now;
-                    $this->patchDashboard($id);
+                    $this->patchDashboard($id, $csrf);
                     $this->sse()->patchSignals(['qc' => ['v' => $version]]);
                 }
                 while (ob_get_level() > 0) {
@@ -67,7 +74,7 @@ class CpController extends Controller
                 flush();
                 sleep(1);
             }
-            $this->sse()->patchElements($this->renderPartial('_cp/stream', ['n' => random_int(1, 999999999)]));
+            $this->sse()->patchElements($this->partial('_cp/stream', ['n' => random_int(1, 999999999), 'csrf' => $csrf]));
         });
     }
 
@@ -93,11 +100,11 @@ class CpController extends Controller
         return $this->sse()->getEventStream(); // the stream picks up the change
     }
 
-    private function patchDashboard(?int $id): void
+    private function patchDashboard(?int $id, string $csrf): void
     {
-        $vars = $this->vars($id);
-        $this->sse()->patchElements($this->renderPartial('_cp/list', $vars));
-        $this->sse()->patchElements($this->renderPartial('_cp/thread', $vars));
+        $vars = ['csrf' => $csrf] + $this->vars($id);
+        $this->sse()->patchElements($this->partial('_cp/list', $vars));
+        $this->sse()->patchElements($this->partial('_cp/thread', $vars));
     }
 
     private function vars(?int $id): array
@@ -113,7 +120,7 @@ class CpController extends Controller
         ];
     }
 
-    private function renderPartial(string $template, array $vars): string
+    private function partial(string $template, array $vars): string
     {
         return Craft::$app->getView()->renderTemplate('quickchat/' . $template, $vars);
     }

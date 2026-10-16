@@ -9,7 +9,7 @@
             </div>
             {% set next = conversation.status == 'open' ? 'resolved' : 'open' %}
             <button type="button" class="btn small"
-                    data-star-on:click="$qc.status = '{{ next }}'; @post('{{ actionUrl('quickchat/cp/status') }}', {headers: {'X-CSRF-Token': '{{ craft.app.request.csrfToken }}'}, filterSignals: {include: /^qc\./}})">
+                    data-star-on:click="$qc.status = '{{ next }}'; @post('{{ actionUrl('quickchat/cp/status') }}', {headers: {'X-CSRF-Token': '{{ csrf }}'}, filterSignals: {include: /^qc\./}})">
                 {{ next == 'resolved' ? 'Resolve' : 'Reopen' }}
             </button>
         </header>
