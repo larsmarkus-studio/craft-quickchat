@@ -12,7 +12,6 @@ $theme-colors: ("primary": $primary); // one button variant instead of eight, pl
 
 .qc {
     // The slice of _root.scss these components read
-    --qc-body-font-family: #{inspect($font-family-sans-serif)};
     --qc-body-font-size: 1rem;
     --qc-body-line-height: 1.5;
     --qc-body-color: #{$body-color};
@@ -36,8 +35,7 @@ $theme-colors: ("primary": $primary); // one button variant instead of eight, pl
     --qc-danger-text-emphasis: #{$danger-text-emphasis};
     --qc-accent: #{$primary};
 
-    // Mini reboot, scoped
-    font-family: var(--qc-body-font-family);
+    // Mini reboot, scoped. No font-family: the panel inherits the site's body font.
     font-size: var(--qc-body-font-size);
     line-height: var(--qc-body-line-height);
     color: var(--qc-body-color);
