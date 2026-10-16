@@ -2,10 +2,6 @@
 {% set title = 'Quickchat' %}
 {% set selectedSubnavItem = 'quickchat' %}
 
-{% block actionButton %}
-    <span class="qc-cp-status {{ isOpen ? 'on' : 'off' }}">{{ isOpen ? 'Online (office hours)' : 'Offline, visitors see the email fallback' }}</span>
-{% endblock %}
-
 {% block content %}
     {% css %}
     .qc-cp{display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:var(--l,24px);min-height:60vh}
@@ -30,12 +26,28 @@
     .qc-cp .qc-time{font-size:.75em;color:var(--light-text-color,#606d7b)}
     .qc-cp-compose{display:flex;gap:8px;align-items:end;padding-top:12px}
     .qc-cp-empty{margin:auto}
-    .qc-cp-status{font-size:.9em;padding:4px 10px;border-radius:12px}
+    .qc-cp-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-bottom:16px}
+    .qc-cp-sound{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+    .qc-cp-status{font-size:.9em;padding:4px 10px;border-radius:12px;text-decoration:none!important}
     .qc-cp-status.on{background:#e3f9e5;color:#0e5c1d}.qc-cp-status.off{background:#f3f4f6;color:#555}
     @media (max-width:800px){.qc-cp{grid-template-columns:1fr}.qc-cp-list{max-height:30vh;border:0}}
     {% endcss %}
     {% set opts = "{headers: {'X-CSRF-Token': '" ~ csrf ~ "'}, filterSignals: {include: /^qc\\./}}" %}
-    <div class="qc-cp" data-star-signals="{{ {qc: {sel: conversation.id ?? 0, reply: '', status: '', v: ''}}|json_encode }}">
+    <div data-star-signals="{{ {qc: {sel: conversation.id ?? 0, reply: '', status: '', v: '', seen: seen, ding: 0, sound: false, soundBlocked: false}}|json_encode }}">
+    <div class="qc-cp-bar">
+        <a class="qc-cp-status {{ isOpen ? 'on' : 'off' }}" href="{{ cpUrl('settings/plugins/quickchat') }}" title="Office hours, emails and texts">
+            {{ isOpen ? 'Online (office hours)' : 'Offline, visitors see the email fallback' }} · Settings
+        </a>
+        {# Per browser: you may want it at your desk, not on your phone #}
+        <label class="qc-cp-sound" data-star-init="$qc.sound = localStorage.getItem('quickchat-sound') === '1'">
+            <input type="checkbox" data-star-bind="qc.sound"
+                   data-star-on:change="localStorage.setItem('quickchat-sound', $qc.sound ? '1' : ''); $qc.sound && new Audio('{{ dingUrl }}').play()">
+            Sound on new messages
+        </label>
+        <span class="warning" data-star-show="$qc.sound && $qc.soundBlocked">The browser blocked the sound: click anywhere on this page once.</span>
+        <div hidden data-star-effect="$qc.ding && $qc.sound && new Audio('{{ dingUrl }}').play().then(() => $qc.soundBlocked = false, () => $qc.soundBlocked = true)"></div>
+    </div>
+    <div class="qc-cp">
         {% include 'quickchat/_cp/list' %}
         <div class="qc-cp-main">
             {% include 'quickchat/_cp/thread' %}
@@ -49,5 +61,6 @@
             {% endif %}
         </div>
         {% include 'quickchat/_cp/stream' with {n: 1, csrf: csrf} only %}
+    </div>
     </div>
 {% endblock %}

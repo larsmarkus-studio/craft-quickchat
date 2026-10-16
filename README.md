@@ -29,8 +29,12 @@ Put the launcher in your layout, before `</body>`:
 {{ craft.quickchat.widget() }}
 ```
 
-Then set office hours, the support email and the texts under **Settings → Quickchat**, or in
-`config/quickchat.php` (every property of `src/models/Settings.php`, multi-environment aware).
+Then set office hours, the support email and the texts under **Settings → Plugins → Quickchat**
+(also linked from the status badge on the dashboard), or in `config/quickchat.php` (every property
+of `src/models/Settings.php`, multi-environment aware).
+
+Plugin settings are project config: with `allowAdminChanges` off in production, change the hours
+locally and deploy, or keep them in `config/quickchat.php` per environment.
 
 ## What it does
 
@@ -38,6 +42,8 @@ Then set office hours, the support email and the texts under **Settings → Quic
   conversations stay readable and writable, with an "offline" note.
 - **Optional email** before the first message, so you can follow up after the visitor leaves.
 - **Live both ways**: one SSE stream per open chat; the CP dashboard updates itself too.
+- **Chime in the CP** for new visitor messages, switched on per browser on the dashboard. Browsers
+  only allow sound after you've clicked the page once; the dashboard says so if it was blocked.
 - **Unread badge** on the CP nav item, **resolve / reopen** per conversation. A visitor
   writing in a resolved chat reopens it.
 - **Mail per new conversation** to `notifyEmail` (optional).
@@ -94,6 +100,7 @@ leaves an `e2e …` conversation behind.
 ## Development
 
 `npm install && npm run build` recompiles `src/web/quickchat.css` from `build/quickchat.scss`.
+`python3 build/ding.py` regenerates the chime, `src/web/ding.wav`.
 The compiled file is committed, so installing the plugin needs no Node.
 
 Design decisions are in [`docs/decisions`](docs/decisions).

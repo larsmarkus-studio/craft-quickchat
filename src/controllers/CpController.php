@@ -36,7 +36,11 @@ class CpController extends Controller
         if ($id) {
             Plugin::getInstance()->chat->markRead($id);
         }
-        return $this->renderTemplate('quickchat/_cp/index', $this->vars($id) + ['csrf' => $this->request->getCsrfToken()]);
+        return $this->renderTemplate('quickchat/_cp/index', $this->vars($id) + [
+            'csrf' => $this->request->getCsrfToken(),
+            'seen' => Plugin::getInstance()->chat->lastVisitorMessageId(),
+            'dingUrl' => Craft::$app->getAssetManager()->getPublishedUrl(Plugin::getInstance()->getBasePath() . '/web/ding.wav', true),
+        ]);
     }
 
     public function actionStream(): Response
@@ -45,6 +49,8 @@ class CpController extends Controller
         $qc = $this->qc();
         $id = (int) ($qc['sel'] ?? 0) ?: null;
         $version = (string) ($qc['v'] ?? '');
+        // `seen` is the baseline from page load, `ding` the last one this page chimed for
+        $seen = max((int) ($qc['seen'] ?? 0), (int) ($qc['ding'] ?? 0));
         $seconds = Plugin::getInstance()->getSettings()->streamSeconds;
         $chat = Plugin::getInstance()->chat;
         // Both read the session (CSRF token, the user's formatting locale). Once the stream has sent
@@ -52,7 +58,7 @@ class CpController extends Controller
         $csrf = $this->request->getCsrfToken();
         Craft::$app->getFormatter();
 
-        return $this->sse()->getEventStream(function () use ($chat, $id, $version, $seconds, $csrf) {
+        return $this->sse()->getEventStream(function () use ($chat, $id, $version, $seen, $seconds, $csrf) {
             set_time_limit($seconds + 15);
             $end = time() + $seconds;
             while (time() < $end && !connection_aborted()) {
@@ -66,6 +72,10 @@ class CpController extends Controller
                     $version = $now;
                     $this->patchDashboard($id, $csrf);
                     $this->sse()->patchSignals(['qc' => ['v' => $version]]);
+                    if (($latest = $chat->lastVisitorMessageId()) > $seen) {
+                        $seen = $latest;
+                        $this->sse()->patchSignals(['qc' => ['ding' => $latest]]);
+                    }
                 }
                 while (ob_get_level() > 0) {
                     ob_end_flush(); // the SSE service leaves a buffer open after each event

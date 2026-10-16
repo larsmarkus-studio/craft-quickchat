@@ -1,6 +1,8 @@
 {#- Everything visitor-side lives under .qc and the `qc` signal, so it can't clash with the host site. -#}
 <style>
     .qc-launcher{position:fixed;right:1rem;bottom:1rem;z-index:1054;display:inline-flex;align-items:center;gap:.5rem;padding:.625rem 1rem;border:0;border-radius:2rem;background:var(--qc-accent,#0d6efd);color:#fff;font:500 1rem/1.2 var(--qc-launcher-font,system-ui,sans-serif);box-shadow:0 .25rem 1rem rgba(0,0,0,.2);cursor:pointer}
+    /* Trims each font's own ascender/descender space, so the label centres on the icon whatever the font */
+    .qc-launcher span{text-box:trim-both cap alphabetic}
     .qc-launcher:focus-visible{outline:3px solid #000;outline-offset:2px}
 </style>
 <div class="qc" id="qc"

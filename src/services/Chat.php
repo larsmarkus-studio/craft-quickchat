@@ -128,6 +128,12 @@ class Chat extends Component
         return $c['status'] === 'open' && $c['lastVisitorAt'] && (!$c['agentReadAt'] || $c['lastVisitorAt'] > $c['agentReadAt']);
     }
 
+    /** Drives the CP chime: any visitor message newer than what the page has seen. */
+    public function lastVisitorMessageId(): int
+    {
+        return (int) (new Query())->from(self::M)->where(['fromAgent' => false])->max('id');
+    }
+
     public function unreadCount(): int
     {
         return (int) (new Query())->from(self::C)
