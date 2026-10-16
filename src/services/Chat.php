@@ -87,11 +87,10 @@ class Chat extends Component
             ['id' => $conversation['id']], updateTimestamp: false);
     }
 
-    public function messages(int $conversationId, int $afterId = 0): array
+    public function messages(int $conversationId): array
     {
         return (new Query())->from(self::M)
             ->where(['conversationId' => $conversationId])
-            ->andWhere(['>', 'id', $afterId])
             ->orderBy(['id' => SORT_ASC])
             ->collect()
             ->map(fn(array $m) => $m + ['time' => $this->time($m['dateCreated'])])
@@ -102,6 +101,29 @@ class Chat extends Component
     public function time(?string $utc, string $format = 'short'): string
     {
         return $utc ? Craft::$app->getFormatter()->asTime(new DateTime($utc, new \DateTimeZone('UTC')), $format) : '';
+    }
+
+    /** Time for today, date for anything older, so the CP list never passes off an old chat as new. */
+    public function when(?string $utc): string
+    {
+        if (!$utc) {
+            return '';
+        }
+        $date = (new DateTime($utc, new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone(Craft::$app->getTimeZone()));
+        return $date->format('Y-m-d') === (new DateTime())->format('Y-m-d')
+            ? Craft::$app->getFormatter()->asTime($date, 'short')
+            : Craft::$app->getFormatter()->asDate($date, 'short');
+    }
+
+    /** What a widget poll needs, in one query: the status and the newest message id. */
+    public function pollState(int $id): ?array
+    {
+        $row = (new Query())
+            ->select(['status', 'lastId' => (new Query())->select('MAX(id)')->from(self::M)->where('[[conversationId]] = [[c.id]]')])
+            ->from(['c' => self::C])
+            ->where(['c.id' => $id])
+            ->one();
+        return $row ? ['status' => $row['status'], 'lastId' => (int) $row['lastId']] : null;
     }
 
     /** Root-relative, so sites served on several hostnames never make a cross-origin request. */
@@ -147,25 +169,56 @@ class Chat extends Component
         Db::update(self::C, ['agentReadAt' => Db::prepareDateForDb(new DateTime())], ['id' => $id], updateTimestamp: false);
     }
 
+    /** Same, but a no-op unless something is unread, so polling doesn't bump the CP version every time. */
+    public function markReadIfUnread(int $id): void
+    {
+        Db::update(self::C, ['agentReadAt' => Db::prepareDateForDb(new DateTime())], [
+            'and',
+            ['id' => $id, 'status' => 'open'],
+            ['or', ['agentReadAt' => null], '[[lastVisitorAt]] > [[agentReadAt]]'],
+        ], updateTimestamp: false);
+    }
+
     public function setStatus(int $id, string $status): void
     {
         Db::update(self::C, ['status' => $status === 'resolved' ? 'resolved' : 'open'], ['id' => $id]);
     }
 
-    /** Changes whenever any conversation or message changes, so the CP stream knows to re-render. */
+    /**
+     * Changes whenever any conversation or message changes, so the CP knows to re-render. The
+     * resolved count catches a resolve/reopen in the same second as the latest update.
+     */
     public function version(): string
     {
-        return implode('|', [
-            (new Query())->from(self::M)->max('id'),
-            (new Query())->from(self::C)->max('dateUpdated'),
-            (new Query())->from(self::C)->max('agentReadAt'),
-        ]);
+        $row = (new Query())
+            ->select([
+                'm' => (new Query())->select('MAX(id)')->from(self::M),
+                'u' => 'MAX([[dateUpdated]])',
+                'r' => 'MAX([[agentReadAt]])',
+                'n' => "SUM(CASE WHEN [[status]] = 'resolved' THEN 1 ELSE 0 END)",
+            ])
+            ->from(self::C)
+            ->one();
+        return implode('|', $row ?: []);
     }
 
-    /** True at most once per `$seconds` per key; cache-backed, so no cookies or extra tables. */
-    public function throttle(string $key, int $seconds): bool
+    /**
+     * At most `$max` hits per `$seconds` per key; cache-backed, so no cookies or extra tables.
+     * A count instead of "once per window", so visitors sharing an IP (offices, a misconfigured
+     * proxy) don't block each other.
+     */
+    public function throttle(string $key, int $max, int $seconds): bool
     {
-        return Craft::$app->getCache()->add('quickchat:' . md5($key), 1, $seconds);
+        $cache = Craft::$app->getCache();
+        $key = 'quickchat:' . md5($key);
+        // ponytail: get/set isn't atomic, so a burst can slip one or two past the limit; fine for spam control
+        [$hits, $until] = $cache->get($key) ?: [0, time() + $seconds];
+        if ($hits >= $max) {
+            return false;
+        }
+        // Keeps the window's original end, so later hits don't extend it
+        $cache->set($key, [$hits + 1, $until], max(1, $until - time()));
+        return true;
     }
 
     private function notify(array $conversation, string $body): void

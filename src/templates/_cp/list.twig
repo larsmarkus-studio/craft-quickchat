@@ -6,7 +6,7 @@
             <span class="qc-cp-who">
                 {% if unread %}<span class="qc-cp-dot" title="Unread"></span>{% endif %}
                 <strong>{{ c.email ?: 'Visitor #' ~ c.id }}</strong>
-                <span class="light">{{ chat.time(c.dateUpdated) }}</span>
+                <span class="light">{{ chat.when(c.dateUpdated) }}</span>
             </span>
             {% if craft.app.isMultiSite %}<span class="qc-cp-site">{{ craft.app.sites.getSiteById(c.siteId).name ?? '–' }}</span>{% endif %}
             <span class="light qc-cp-preview">{{ c.lastFromAgent ? 'You: ' }}{{ c.lastBody|default('')|slice(0, 80) }}</span>

@@ -10,15 +10,14 @@ use larsmarkusstudio\quickchat\Plugin;
 use larsmarkusstudio\quickchat\services\Chat;
 use putyourlightson\datastar\assets\DatastarAssetBundle;
 use putyourlightson\datastar\Datastar;
-use putyourlightson\datastar\traits\Sse;
 use yii\web\Response;
 
 /**
- * The CP dashboard: list + thread, kept live by one SSE stream that re-renders both on any change.
+ * The CP dashboard: list + thread, re-rendered whenever anything changes.
  */
 class CpController extends Controller
 {
-    use Sse;
+    use LiveUpdates;
 
     public function beforeAction($action): bool
     {
@@ -33,12 +32,13 @@ class CpController extends Controller
         // Then the aliased (`data-star-*`) build, on this CP page only, whatever `registerScript` says.
         Datastar::getInstance();
         $this->getView()->registerAssetBundle(DatastarAssetBundle::class);
+        $chat = Plugin::getInstance()->chat;
         if ($id) {
-            Plugin::getInstance()->chat->markRead($id);
+            $chat->markRead($id);
         }
-        return $this->renderTemplate('quickchat/_cp/index', $this->vars($id) + [
-            'csrf' => $this->request->getCsrfToken(),
-            'seen' => Plugin::getInstance()->chat->lastVisitorMessageId(),
+        return $this->renderTemplate('quickchat/_cp/index', $this->vars($id, $this->request->getCsrfToken()) + [
+            'seen' => $chat->lastVisitorMessageId(),
+            'v' => $chat->version(),
             'dingUrl' => Craft::$app->getAssetManager()->getPublishedUrl(Plugin::getInstance()->getBasePath() . '/web/ding.wav', true),
         ]);
     }
@@ -51,46 +51,26 @@ class CpController extends Controller
         $version = (string) ($qc['v'] ?? '');
         // Newest visitor message this page knows about; `_ding` is the browser-only chime trigger
         $seen = (int) ($qc['seen'] ?? 0);
-        $hold = Plugin::getInstance()->getSettings()->holdSeconds;
         $chat = Plugin::getInstance()->chat;
-        // Both read the session (CSRF token, the user's formatting locale). Once the stream has sent
-        // headers, touching the session throws, so warm them up first.
+        // Held streams render after the headers are out, when touching the session throws: read the
+        // CSRF token and create the formatter (reads the user's locale) first. Polls don't need it.
         $csrf = $this->request->getCsrfToken();
         Craft::$app->getFormatter();
 
-        return $this->sse()->getEventStream(function () use ($chat, $id, $version, $seen, $hold, $csrf) {
-            set_time_limit($hold + 15);
-            $end = time() + $hold;
-            while (true) {
-                if ($id) {
-                    $c = $chat->findById($id);
-                    if ($c && $chat->isUnread($c)) {
-                        $chat->markRead($id);
-                    }
-                }
-                if (($now = $chat->version()) !== $version) {
-                    $version = $now;
-                    $this->patchDashboard($id, $csrf);
-                    $this->sse()->patchSignals(['qc' => ['v' => $version]]);
-                    if (($latest = $chat->lastVisitorMessageId()) > $seen) {
-                        $seen = $latest;
-                        $this->sse()->patchSignals(['qc' => ['seen' => $latest, '_ding' => $latest]]);
-                    }
-                }
-                if (time() >= $end || connection_aborted()) {
-                    break;
-                }
-                while (ob_get_level() > 0) {
-                    ob_end_flush(); // the SSE service leaves a buffer open after each event
-                }
-                echo ": ping\n\n";
-                flush();
-                sleep(1);
+        return $this->live(function () use ($chat, $id, &$version, &$seen, $csrf) {
+            if ($id) {
+                $chat->markReadIfUnread($id);
             }
-            if ($hold) {
-                $this->sse()->patchElements($this->partial('_cp/stream', ['n' => random_int(1, 999999999), 'csrf' => $csrf]));
+            if (($now = $chat->version()) !== $version) {
+                $version = $now;
+                $this->patchDashboard($id, $now, $csrf);
+                if (($latest = $chat->lastVisitorMessageId()) > $seen) {
+                    $seen = $latest;
+                    $this->sse()->patchSignals(['qc' => ['seen' => $latest, '_ding' => $latest]]);
+                }
             }
-        });
+            return true;
+        }, fn() => $this->sse()->patchElements($this->partial('_cp/stream', ['n' => random_int(1, 999999999), 'csrf' => $csrf])));
     }
 
     public function actionReply(): Response
@@ -103,6 +83,8 @@ class CpController extends Controller
         if ($c && $body !== '') {
             $chat->addMessage($c, $body, true, Craft::$app->getUser()->getId());
             $this->sse()->patchSignals(['qc' => ['reply' => '']]);
+            // Shown right away rather than on the next poll
+            $this->patchDashboard((int) $c['id'], $chat->version(), $this->request->getCsrfToken());
         }
         return $this->sse()->getEventStream();
     }
@@ -111,18 +93,25 @@ class CpController extends Controller
     {
         $this->requirePostRequest();
         $qc = $this->qc();
-        Plugin::getInstance()->chat->setStatus((int) ($qc['sel'] ?? 0), (string) ($qc['status'] ?? ''));
-        return $this->sse()->getEventStream(); // the stream picks up the change
+        $chat = Plugin::getInstance()->chat;
+        $id = (int) ($qc['sel'] ?? 0) ?: null;
+        if ($id) {
+            $chat->setStatus($id, (string) ($qc['status'] ?? ''));
+            $this->patchDashboard($id, $chat->version(), $this->request->getCsrfToken());
+        }
+        return $this->sse()->getEventStream();
     }
 
-    private function patchDashboard(?int $id, string $csrf): void
+    /** List + thread, and the version they show, so the next poll doesn't render them again. */
+    private function patchDashboard(?int $id, string $version, string $csrf): void
     {
-        $vars = ['csrf' => $csrf] + $this->vars($id);
+        $vars = $this->vars($id, $csrf);
         $this->sse()->patchElements($this->partial('_cp/list', $vars));
         $this->sse()->patchElements($this->partial('_cp/thread', $vars));
+        $this->sse()->patchSignals(['qc' => ['v' => $version]]);
     }
 
-    private function vars(?int $id): array
+    private function vars(?int $id, string $csrf): array
     {
         $chat = Plugin::getInstance()->chat;
         $conversation = $id ? $chat->findById($id) : null;
@@ -132,17 +121,7 @@ class CpController extends Controller
             'conversation' => $conversation,
             'messages' => $conversation ? $chat->messages($id) : [],
             'isOpen' => $chat->isOpen(),
+            'csrf' => $csrf,
         ];
-    }
-
-    private function partial(string $template, array $vars): string
-    {
-        return Craft::$app->getView()->renderTemplate('quickchat/' . $template, $vars);
-    }
-
-    private function qc(): array
-    {
-        $qc = $this->sse()->readSignals()['qc'] ?? [];
-        return is_array($qc) ? $qc : [];
     }
 }

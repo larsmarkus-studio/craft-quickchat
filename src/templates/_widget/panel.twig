@@ -24,7 +24,7 @@
                     <div class="modal-body qc-scroll">
                         <div>
                             <div class="qc-msg qc-msg-them"><div class="qc-bubble">{{ settings.welcomeMessage|t('quickchat') }}</div></div>
-                            <div id="qc-messages" aria-live="polite"></div>
+                            {% include 'quickchat/_widget/list' with {messages: messages} only %}
                         </div>
                     </div>
                     {% if conversation %}

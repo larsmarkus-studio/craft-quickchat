@@ -7,10 +7,8 @@ namespace larsmarkusstudio\quickchat\controllers;
 use Craft;
 use craft\helpers\UrlHelper;
 use craft\web\Controller;
-use craft\web\View;
 use larsmarkusstudio\quickchat\Plugin;
 use larsmarkusstudio\quickchat\services\Chat;
-use putyourlightson\datastar\traits\Sse;
 use yii\web\Response;
 
 /**
@@ -18,15 +16,17 @@ use yii\web\Response;
  *
  * No CSRF: CSRF guards ambient credentials (cookies). These endpoints have none; the
  * conversation token travels in the request body and is the only key.
+ *
+ * The page sends what it last rendered (`last` message id, `st` status). Whenever either is
+ * out of date the whole message list is re-rendered, so a late or overlapping response can
+ * never leave gaps or duplicates.
  */
 class WidgetController extends Controller
 {
-    use Sse;
+    use LiveUpdates;
 
     protected array|bool|int $allowAnonymous = true;
     public $enableCsrfValidation = false;
-
-    private const POLL_SECONDS = 1;
 
     public function beforeAction($action): bool
     {
@@ -43,7 +43,7 @@ class WidgetController extends Controller
     public function actionOpen(): Response
     {
         $this->requirePostRequest();
-        $this->patchPanel($this->qc());
+        $this->patchPanel($this->conversation());
         return $this->sse()->getEventStream();
     }
 
@@ -59,7 +59,7 @@ class WidgetController extends Controller
             !$chat->isOpen() => Craft::t('quickchat', 'We just went offline, please mail us instead.'),
             $body === '' => Craft::t('quickchat', 'Please type a message.'),
             $email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL) => Craft::t('quickchat', 'That email address looks off.'),
-            !$chat->throttle('start' . Craft::$app->getRequest()->getUserIP(), 30) => Craft::t('quickchat', 'One moment please, then try again.'),
+            !$chat->throttle('start' . Craft::$app->getRequest()->getUserIP(), 5, 600) => Craft::t('quickchat', 'One moment please, then try again.'),
             default => null,
         };
         if ($error) {
@@ -68,9 +68,8 @@ class WidgetController extends Controller
 
         $page = (string) ($qc['page'] ?? '');
         $conversation = $chat->start($body, $email ?: null, str_starts_with($page, 'http') ? $page : '', Craft::$app->getSites()->getCurrentSite()->id);
-        $qc = array_merge($qc, ['token' => $conversation['token'], 'body' => '', 'last' => 0]);
-        $this->sse()->patchSignals(['qc' => ['token' => $conversation['token'], 'body' => '', 'last' => 0]]);
-        $this->patchPanel($qc);
+        $this->sse()->patchSignals(['qc' => ['token' => $conversation['token'], 'body' => '']]);
+        $this->patchPanel($conversation);
         return $this->sse()->getEventStream();
     }
 
@@ -79,7 +78,7 @@ class WidgetController extends Controller
         $this->requirePostRequest();
         $qc = $this->qc();
         $chat = Plugin::getInstance()->chat;
-        $conversation = $chat->findByToken($qc['token'] ?? null);
+        $conversation = $this->conversation();
         $body = $this->body($qc);
 
         if (!$conversation) {
@@ -88,89 +87,82 @@ class WidgetController extends Controller
         if ($body === '') {
             return $this->sse()->getEventStream();
         }
-        if (!$chat->throttle('send' . $conversation['id'], 1)) {
+        if (!$chat->throttle('send' . $conversation['id'], 1, 1)) {
             return $this->error(Craft::t('quickchat', 'Easy, one message per second.'));
         }
 
         $chat->addMessage($conversation, $body, false);
-        // The stream renders the message, so no duplicate patch here
         $this->sse()->patchSignals(['qc' => ['body' => '']]);
         $this->sse()->patchElements('<p id="qc-error"></p>');
+        // Shown right away rather than on the next poll. Writing reopens a resolved chat, which
+        // changes the footer too, so that case re-renders the whole panel.
+        if ($conversation['status'] === 'resolved') {
+            $this->patchPanel($chat->findById((int) $conversation['id']));
+        } else {
+            $this->patchMessages((int) $conversation['id']);
+        }
         return $this->sse()->getEventStream();
     }
 
-    /**
-     * Sends messages newer than `last`. With `holdSeconds` 0 it answers at once and the page polls
-     * again; otherwise it keeps checking for that long, then re-renders `#qc-stream` to reconnect.
-     */
     public function actionStream(): Response
     {
         $this->requirePostRequest();
         $qc = $this->qc();
         $chat = Plugin::getInstance()->chat;
-        $conversation = $chat->findByToken($qc['token'] ?? null);
+        $conversation = $this->conversation();
         if (!$conversation) {
             return $this->sse()->getEventStream();
         }
-
+        $id = (int) $conversation['id'];
         $last = (int) ($qc['last'] ?? 0);
-        // The status the page last rendered, so a resolve between two polls still re-renders it
         $status = (string) ($qc['st'] ?? '') ?: $conversation['status'];
-        $hold = Plugin::getInstance()->getSettings()->holdSeconds;
 
-        // ponytail: one indexed query per check; with holdSeconds > 0 each open chat also holds a PHP
-        // process. Move to pub/sub (Redis, Mercure) when polling load or held processes start to hurt.
-        return $this->sse()->getEventStream(function () use ($chat, $conversation, $last, $status, $hold, $qc) {
-            set_time_limit($hold + 15);
-            $end = time() + $hold;
-            while (true) {
-                $messages = $chat->messages((int) $conversation['id'], $last);
-                if ($messages) {
-                    $last = (int) end($messages)['id'];
-                    $this->sse()->patchElements($this->partial('_widget/messages', ['messages' => $messages]), [
-                        'selector' => '#qc-messages',
-                        'mode' => 'append',
-                    ]);
-                    $this->sse()->patchSignals(['qc' => ['last' => $last]]);
-                }
-                $now = $chat->findById((int) $conversation['id']);
-                if (!$now || $now['status'] !== $status) {
-                    $this->patchPanel(array_merge($qc, ['last' => 0]));
-                    return;
-                }
-                if (time() >= $end || connection_aborted()) {
-                    break;
-                }
-                // Comment line: keeps proxies from timing out and lets PHP notice a closed tab
-                while (ob_get_level() > 0) {
-                    ob_end_flush(); // the SSE service leaves a buffer open after each event
-                }
-                echo ": ping\n\n";
-                flush();
-                sleep(self::POLL_SECONDS);
+        return $this->live(function () use ($chat, $id, &$last, $status) {
+            $state = $chat->pollState($id);
+            if (!$state || $state['status'] !== $status) {
+                $this->patchPanel($state ? $chat->findById($id) : null);
+                return false;
             }
-            if ($hold) {
-                $this->sse()->patchElements($this->partial('_widget/stream', ['n' => random_int(1, 999999999)]));
+            if ($state['lastId'] !== $last) {
+                $last = $this->patchMessages($id);
             }
-        });
+            return true;
+        }, fn() => $this->sse()->patchElements($this->partial('_widget/stream', ['n' => random_int(1, 999999999)])));
     }
 
-    private function patchPanel(array $qc): void
+    private function conversation(): ?array
+    {
+        return Plugin::getInstance()->chat->findByToken($this->qc()['token'] ?? null);
+    }
+
+    /** The whole panel, history included. Forgets a token the server doesn't know (anymore). */
+    private function patchPanel(?array $conversation): void
     {
         $plugin = Plugin::getInstance();
-        $conversation = $plugin->chat->findByToken($qc['token'] ?? null);
-        if (!$conversation && !empty($qc['token'])) {
-            $this->sse()->patchSignals(['qc' => ['token' => '']]);
+        $messages = $conversation ? $plugin->chat->messages((int) $conversation['id']) : [];
+        $signals = ['last' => $messages ? (int) end($messages)['id'] : 0, 'st' => $conversation['status'] ?? ''];
+        if (!$conversation && !empty($this->qc()['token'])) {
+            $signals += ['token' => '', '_forget' => true];
         }
-        // The visitor's view starts empty and the stream fills it, so there's one render path for messages
-        $this->sse()->patchSignals(['qc' => ['last' => 0, 'st' => $conversation['status'] ?? '']]);
+        $this->sse()->patchSignals(['qc' => $signals]);
         $this->sse()->patchElements($this->partial('_widget/panel', [
             'settings' => $plugin->getSettings(),
             'isOpen' => $plugin->chat->isOpen(),
             'conversation' => $conversation,
+            'messages' => $messages,
             'n' => random_int(1, 999999999),
             'cssUrl' => UrlHelper::rootRelativeUrl(Craft::$app->getAssetManager()->getPublishedUrl($plugin->getBasePath() . '/web/quickchat.css', true)),
         ]));
+    }
+
+    /** Re-renders the full list and returns the newest id the page now shows. */
+    private function patchMessages(int $conversationId): int
+    {
+        $messages = Plugin::getInstance()->chat->messages($conversationId);
+        $last = $messages ? (int) end($messages)['id'] : 0;
+        $this->sse()->patchElements($this->partial('_widget/list', ['messages' => $messages]));
+        $this->sse()->patchSignals(['qc' => ['last' => $last]]);
+        return $last;
     }
 
     private function error(string $message): Response
@@ -179,19 +171,8 @@ class WidgetController extends Controller
         return $this->sse()->getEventStream();
     }
 
-    private function qc(): array
-    {
-        $qc = $this->sse()->readSignals()['qc'] ?? [];
-        return is_array($qc) ? $qc : [];
-    }
-
     private function body(array $qc): string
     {
         return mb_substr(trim((string) ($qc['body'] ?? '')), 0, Chat::MAX_BODY);
-    }
-
-    private function partial(string $template, array $vars): string
-    {
-        return Craft::$app->getView()->renderTemplate('quickchat/' . $template, $vars, View::TEMPLATE_MODE_CP);
     }
 }

@@ -33,7 +33,7 @@
     @media (max-width:800px){.qc-cp{grid-template-columns:1fr}.qc-cp-list{max-height:30vh;border:0}}
     {% endcss %}
     {% set opts = "{headers: {'X-CSRF-Token': '" ~ csrf ~ "'}, filterSignals: {include: /^qc\\./}}" %}
-    <div data-star-signals="{{ {qc: {sel: conversation.id ?? 0, reply: '', status: '', v: '', seen: seen, _ding: 0, _sound: false, _soundBlocked: false}}|json_encode }}">
+    <div data-star-signals="{{ {qc: {sel: conversation.id ?? 0, reply: '', status: '', v: v, seen: seen, _ding: 0, _sound: false, _soundBlocked: false}}|json_encode }}">
     <div class="qc-cp-bar">
         <a class="qc-cp-status {{ isOpen ? 'on' : 'off' }}" href="{{ cpUrl('settings/plugins/quickchat') }}" title="Office hours, emails and texts">
             {{ isOpen ? 'Online (office hours)' : 'Offline, visitors see the email fallback' }} · Settings

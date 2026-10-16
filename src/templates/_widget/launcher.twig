@@ -9,6 +9,8 @@
      data-signals="{{ {qc: {_open: false, token: '', body: '', email: '', page: '', site: currentSite.id, last: 0, _sending: false}}|json_encode }}"
      data-init="$qc.token = localStorage.getItem('quickchat') || ''; $qc.page = location.href">
     <div hidden data-effect="$qc.token && localStorage.setItem('quickchat', $qc.token)"></div>
+    {# The server sets _forget when it no longer knows the stored token #}
+    <div hidden data-effect="$qc._forget && localStorage.removeItem('quickchat')"></div>
     <button type="button" class="qc-launcher" aria-label="{{ settings.title|t('quickchat') }}" data-attr:aria-expanded="$qc._open ? 'true' : 'false'"
             data-on:click="$qc._open = !$qc._open; $qc._open && @post('{{ craft.quickchat.url('widget/open') }}', {filterSignals: {include: /^qc\./}})">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>

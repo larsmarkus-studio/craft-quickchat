@@ -66,8 +66,11 @@ locally and deploy, or keep them in `config/quickchat.php` per environment.
 
 Quickchat sets no cookies. The conversation key is a random token in the visitor's `localStorage`
 and is sent in POST bodies only, never in URLs. The visitor endpoints skip CSRF on purpose: CSRF
-protects cookie-based sessions, and these endpoints have none. Starting a chat is limited to one per
-IP per 30 seconds and messages to one per second (through Craft's cache, where the IP sits hashed for 30 seconds; nothing about the visitor is stored besides what they type).
+protects cookie-based sessions, and these endpoints have none. Starting a chat is limited to five per
+IP per ten minutes and messages to one per second (through Craft's cache, where the IP sits hashed
+for those ten minutes; nothing about the visitor is stored besides what they type). Behind a load
+balancer or CDN, tell Craft which proxy headers to trust (`trustedHosts`, `ipHeaders` on the
+`request` component in `config/app.php`), or every visitor shares the proxy's IP and its limit.
 
 ## Polling or held streams
 
