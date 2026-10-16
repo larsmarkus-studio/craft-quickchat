@@ -4,13 +4,13 @@
     {# Lazy: the stylesheet only arrives with the first open #}
     <link rel="stylesheet" href="{{ cssUrl }}">
     <div class="modal qc-modal" role="dialog" aria-labelledby="qc-title"
-         data-style:display="$qc.open ? 'block' : 'none'"
-         data-on:keydown__window="evt.key === 'Escape' && ($qc.open = false)">
+         data-style:display="$qc._open ? 'block' : 'none'"
+         data-on:keydown__window="evt.key === 'Escape' && ($qc._open = false)">
         <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down">
             <div class="modal-content">
                 <div class="modal-header">
                     <h2 class="modal-title" id="qc-title">{{ settings.title|t('quickchat') }}</h2>
-                    <button type="button" class="btn-close" aria-label="{{ 'Close'|t('quickchat') }}" data-on:click="$qc.open = false"></button>
+                    <button type="button" class="btn-close" aria-label="{{ 'Close'|t('quickchat') }}" data-on:click="$qc._open = false"></button>
                 </div>
 
                 {% if not conversation and not isOpen %}
@@ -46,7 +46,7 @@
                             <textarea class="form-control" rows="2" maxlength="2000" placeholder="{{ 'Type a message…'|t('quickchat') }}" aria-label="{{ 'Message'|t('quickchat') }}"
                                       data-bind="qc.body"
                                       data-on:keydown="evt.key === 'Enter' && !evt.shiftKey && (evt.preventDefault() || @post('{{ send }}', {{ opts }}))"></textarea>
-                            <button type="button" class="btn btn-primary" data-indicator="qc.sending" data-attr:disabled="$qc.sending"
+                            <button type="button" class="btn btn-primary" data-indicator="qc._sending" data-attr:disabled="$qc._sending"
                                     data-on:click="@post('{{ send }}', {{ opts }})">{{ 'Send'|t('quickchat') }}</button>
                         </div>
                         <p id="qc-error"></p>

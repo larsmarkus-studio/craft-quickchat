@@ -8,4 +8,4 @@
 
 **Rejected:** Redis pub/sub or a separate SSE server (extra services); short-interval `@get` polling (no push).
 
-**Revisit if:** Concurrent chats approach the PHP-FPM worker count.
+**Revisit if:** Concurrent chats approach the PHP-FPM worker count. See 0005 for fortrabbit.

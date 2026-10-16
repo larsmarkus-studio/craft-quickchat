@@ -33,19 +33,19 @@
     @media (max-width:800px){.qc-cp{grid-template-columns:1fr}.qc-cp-list{max-height:30vh;border:0}}
     {% endcss %}
     {% set opts = "{headers: {'X-CSRF-Token': '" ~ csrf ~ "'}, filterSignals: {include: /^qc\\./}}" %}
-    <div data-star-signals="{{ {qc: {sel: conversation.id ?? 0, reply: '', status: '', v: '', seen: seen, ding: 0, sound: false, soundBlocked: false}}|json_encode }}">
+    <div data-star-signals="{{ {qc: {sel: conversation.id ?? 0, reply: '', status: '', v: '', seen: seen, _ding: 0, _sound: false, _soundBlocked: false}}|json_encode }}">
     <div class="qc-cp-bar">
         <a class="qc-cp-status {{ isOpen ? 'on' : 'off' }}" href="{{ cpUrl('settings/plugins/quickchat') }}" title="Office hours, emails and texts">
             {{ isOpen ? 'Online (office hours)' : 'Offline, visitors see the email fallback' }} · Settings
         </a>
         {# Per browser: you may want it at your desk, not on your phone #}
-        <label class="qc-cp-sound" data-star-init="$qc.sound = localStorage.getItem('quickchat-sound') === '1'">
-            <input type="checkbox" data-star-bind="qc.sound"
-                   data-star-on:change="localStorage.setItem('quickchat-sound', $qc.sound ? '1' : ''); $qc.sound && new Audio('{{ dingUrl }}').play()">
+        <label class="qc-cp-sound" data-star-init="$qc._sound = localStorage.getItem('quickchat-sound') === '1'">
+            <input type="checkbox" data-star-bind="qc._sound"
+                   data-star-on:change="localStorage.setItem('quickchat-sound', $qc._sound ? '1' : ''); $qc._sound && new Audio('{{ dingUrl }}').play()">
             Sound on new messages
         </label>
-        <span class="warning" data-star-show="$qc.sound && $qc.soundBlocked">The browser blocked the sound: click anywhere on this page once.</span>
-        <div hidden data-star-effect="$qc.ding && $qc.sound && new Audio('{{ dingUrl }}').play().then(() => $qc.soundBlocked = false, () => $qc.soundBlocked = true)"></div>
+        <span class="warning" data-star-show="$qc._sound && $qc._soundBlocked">The browser blocked the sound: click anywhere on this page once.</span>
+        <div hidden data-star-effect="$qc._ding && $qc._sound && new Audio('{{ dingUrl }}').play().then(() => $qc._soundBlocked = false, () => $qc._soundBlocked = true)"></div>
     </div>
     <div class="qc-cp">
         {% include 'quickchat/_cp/list' %}

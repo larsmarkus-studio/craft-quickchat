@@ -49,8 +49,8 @@ class CpController extends Controller
         $qc = $this->qc();
         $id = (int) ($qc['sel'] ?? 0) ?: null;
         $version = (string) ($qc['v'] ?? '');
-        // `seen` is the baseline from page load, `ding` the last one this page chimed for
-        $seen = max((int) ($qc['seen'] ?? 0), (int) ($qc['ding'] ?? 0));
+        // Newest visitor message this page knows about; `_ding` is the browser-only chime trigger
+        $seen = (int) ($qc['seen'] ?? 0);
         $seconds = Plugin::getInstance()->getSettings()->streamSeconds;
         $chat = Plugin::getInstance()->chat;
         // Both read the session (CSRF token, the user's formatting locale). Once the stream has sent
@@ -74,7 +74,7 @@ class CpController extends Controller
                     $this->sse()->patchSignals(['qc' => ['v' => $version]]);
                     if (($latest = $chat->lastVisitorMessageId()) > $seen) {
                         $seen = $latest;
-                        $this->sse()->patchSignals(['qc' => ['ding' => $latest]]);
+                        $this->sse()->patchSignals(['qc' => ['seen' => $latest, '_ding' => $latest]]);
                     }
                 }
                 while (ob_get_level() > 0) {
